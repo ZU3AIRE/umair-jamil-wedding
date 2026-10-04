@@ -120,25 +120,6 @@
     if (e.target.closest('.save') || matchMedia('(pointer: coarse)').matches) return;
     go(current() + (e.clientX > innerWidth / 2 ? 1 : -1));
   });
-
-  // Download the cards one by one on the first visit. A refresh does not repeat it.
-  // The browser decides whether to allow, ask, or block; the save icons are the fallback.
-  addEventListener('load', async () => {
-    try {
-      if (sessionStorage.getItem('downloaded')) return;
-      sessionStorage.setItem('downloaded', '1');
-    } catch (e) {}
-    for (const link of document.querySelectorAll('.save')) {
-      const a = document.createElement('a');
-      a.href = link.href;
-      a.download = link.download;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      await new Promise(r => setTimeout(r, 1200));
-    }
-  });
 </script>
 </body>
 </html>
