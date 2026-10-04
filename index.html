@@ -4,12 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#111111">
-<title>Wedding Invitation</title>
+<meta name="theme-color" content="#0d1d12">
+<title>Umair &amp; Sana — Wedding Invitation</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Umair &amp; Sana — Wedding Invitation">
+<meta property="og:description" content="6 · 7 · 8 November 2026 · Lahore">
+<meta property="og:image" content="https://zu3aire.github.io/umair-jamil-wedding/preview.jpg">
+<meta property="og:url" content="https://zu3aire.github.io/umair-jamil-wedding/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Great+Vibes&display=swap">
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
-  body { font-family: system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #0d1d12; overflow: hidden; }
+  body { font-family: 'Cormorant Garamond', Georgia, serif; -webkit-tap-highlight-color: transparent; }
 
   .gallery {
     position: relative;
@@ -26,27 +34,44 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
     visibility: hidden;
     pointer-events: none;
   }
   .card.on { visibility: visible; z-index: 1; }
   .card.in { visibility: visible; z-index: 2; }
+
+  /* A soft, darkened copy of the card fills whatever the card itself does not cover. */
+  .card .bg {
+    position: absolute;
+    inset: -4%;
+    background-size: cover;
+    background-position: center;
+  }
   .card img {
+    position: relative;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, .55);
     -webkit-user-drag: none;
     -webkit-touch-callout: none;
   }
+  .card.in img, .card.on img { animation: drift 10s ease-out forwards; }
+  .gallery.held img { animation-play-state: paused; }
+  @keyframes drift { from { transform: scale(1); } to { transform: scale(1.035); } }
 
   #sparkle {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
-    z-index: 3;
+    z-index: 11;
     pointer-events: none;
   }
+
+  .bars, .save, .loc { transition: opacity .8s ease .4s; }
+  body:not(.open) .bars, body:not(.open) .save, body:not(.open) .loc { opacity: 0; pointer-events: none; }
 
   .bars {
     position: fixed;
@@ -62,49 +87,166 @@
     flex: 1;
     height: 3px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, .35);
+    background: rgba(255, 255, 255, .3);
     box-shadow: 0 0 2px rgba(0, 0, 0, .5);
     overflow: hidden;
   }
   .bars i {
     display: block;
     height: 100%;
-    background: #fff;
+    background: linear-gradient(90deg, #e9c56a, #fff3c4);
     transform: scaleX(0);
     transform-origin: left;
   }
 
-  .save {
+  .save, .loc {
     position: fixed;
     z-index: 4;
+    color: #fff;
+    text-decoration: none;
+    background: rgba(10, 24, 15, .55);
+    border: 1px solid rgba(233, 197, 106, .55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .save svg, .loc svg { width: 20px; height: 20px; stroke: #f3dc9a; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .save {
     top: calc(24px + env(safe-area-inset-top));
     right: calc(12px + env(safe-area-inset-right));
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, .45);
     display: grid;
     place-items: center;
   }
-  .save svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .loc {
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    height: 46px;
+    padding: 0 22px 0 16px;
+    border-radius: 23px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  }
+
+  /* Opening screen */
+  #cover {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    cursor: pointer;
+    background:
+      radial-gradient(ellipse at 50% 38%, rgba(233, 197, 106, .16), transparent 60%),
+      radial-gradient(ellipse at 50% 50%, #1b3a23, #0a1810 75%);
+    transition: opacity 1s ease, transform 1.2s ease, visibility 0s linear 1.2s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #cover.gone { opacity: 0; transform: scale(1.08); visibility: hidden; pointer-events: none; }
+  #cover > div { padding: 24px; animation: rise 1.4s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .gold {
+    background: linear-gradient(100deg, #b8872b 0%, #f6e3a1 28%, #d4a640 46%, #fff6d2 60%, #b8872b 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shine 5s linear infinite;
+  }
+  @keyframes shine { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+
+  .eyebrow { margin: 0 0 30px; font-size: 14px; font-weight: 600; letter-spacing: .42em; text-indent: .42em; text-transform: uppercase; }
+  .seal {
+    position: relative;
+    width: 136px;
+    height: 136px;
+    margin: 0 auto 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(233, 197, 106, .9);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 44px rgba(233, 197, 106, .22), inset 0 0 26px rgba(233, 197, 106, .12);
+  }
+  .seal::before {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    border: 1px solid rgba(233, 197, 106, .45);
+  }
+  .seal span { font-size: 46px; font-style: italic; font-weight: 500; line-height: 1; }
+  .seal em { font-size: 26px; margin: 0 4px; vertical-align: 6px; }
+  #cover h1 { margin: 0 0 10px; font-family: 'Great Vibes', 'Cormorant Garamond', cursive; font-weight: 400; font-size: clamp(46px, 14vw, 68px); line-height: 1.1; padding: 0 8px; }
+  .dates { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: .12em; color: #e8dcc0; }
+  .city { margin: 4px 0 0; font-size: 15px; letter-spacing: .34em; text-indent: .34em; text-transform: uppercase; color: rgba(232, 220, 192, .7); }
+  .open {
+    margin: 46px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .3em;
+    text-indent: .3em;
+    text-transform: uppercase;
+    color: #f3dc9a;
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card.in img, .card.on img, .gold, .open, #cover > div { animation: none; }
+  }
 </style>
 </head>
 <body>
 
 <main class="gallery" id="gallery">
-  <section class="card" data-name="01-Mehndi.jpg"><img src="01-mehndi.jpg" alt="Mehndi invitation card" draggable="false"></section>
-  <section class="card" data-name="02-Barat.jpg"><img src="02-barat.jpg" alt="Barat invitation card" draggable="false"></section>
-  <section class="card" data-name="03-Waleema.jpg"><img src="03-waleema.jpg" alt="Waleema invitation card" draggable="false"></section>
+  <section class="card" data-name="01-Mehndi.jpg" data-place="Qasr-e-Ismail Zia Banquet Hall, Block H, Sabzazar Housing Scheme, Lahore">
+    <div class="bg" style="background-image:linear-gradient(rgba(8,20,12,.5),rgba(8,20,12,.5)),url(bg-01-mehndi.jpg)"></div>
+    <img src="01-mehndi.jpg" alt="Mehndi invitation card" draggable="false">
+  </section>
+  <section class="card" data-name="02-Barat.jpg" data-place="Faisal Event Complex, 316-B Block, Main Boulevard, Sabzazar, Lahore">
+    <div class="bg" style="background-image:linear-gradient(rgba(40,30,20,.5),rgba(40,30,20,.5)),url(bg-02-barat.jpg)"></div>
+    <img src="02-barat.jpg" alt="Barat invitation card" draggable="false">
+  </section>
+  <section class="card" data-name="03-Waleema.jpg" data-place="Faisal Event Complex, 316-B Block, Main Boulevard, Sabzazar, Lahore">
+    <div class="bg" style="background-image:linear-gradient(rgba(8,20,12,.5),rgba(8,20,12,.5)),url(bg-03-waleema.jpg)"></div>
+    <img src="03-waleema.jpg" alt="Waleema invitation card" draggable="false">
+  </section>
 </main>
-
-<canvas id="sparkle"></canvas>
 
 <div class="bars" id="bars"><span><i></i></span><span><i></i></span><span><i></i></span></div>
 
 <a class="save" id="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save this card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
 
+<a class="loc" id="loc" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/></svg>Location</a>
+
+<div id="cover" role="button" tabindex="0" aria-label="Open the invitation">
+  <div>
+    <p class="eyebrow gold">Wedding Invitation</p>
+    <div class="seal"><span class="gold">U<em>&amp;</em>S</span></div>
+    <h1 class="gold">Umair &amp; Sana</h1>
+    <p class="dates">6 · 7 · 8 November 2026</p>
+    <p class="city">Lahore</p>
+    <p class="open">Tap to open</p>
+  </div>
+</div>
+
+<canvas id="sparkle"></canvas>
+
 <script>
-  const SHOW_MS = 6000;    // how long each card stays up, sweep included
+  const SHOW_MS = 8000;    // how long each card stays up, sweep included
   const SWEEP_MS = 1700;   // how long the shimmer takes to cross the screen
   const TAP_MS = 250;      // shorter than this is a tap, longer is a hold
   const SWIPE_PX = 40;
@@ -112,10 +254,19 @@
   const ANGLE = 100;       // tilt of the sweep, as a CSS gradient angle
   const MAX_SPARKS = 450;
 
+  // Sparkle and petal colours for each event: marigold, rose, white.
+  const THEMES = [
+    { sparks: ['#ffffff', '#ffe9a8', '#ffd76a', '#f6a93a'], petals: ['#f59a1b', '#ffb92e', '#e8720c', '#ffd24d'] },
+    { sparks: ['#ffffff', '#ffe3ea', '#ffc2cf', '#f7d58a'], petals: ['#f3a6b5', '#e8768c', '#fbd3da', '#d9566f'] },
+    { sparks: ['#ffffff', '#f4fff2', '#e6f2c8', '#ffe9a8'], petals: ['#ffffff', '#f3f1e4', '#dfe8d2', '#f8f4ea'] }
+  ];
+
   const gallery = document.getElementById('gallery');
   const cards = [...gallery.children];
   const fills = [...document.querySelectorAll('#bars i')];
   const save = document.getElementById('save');
+  const loc = document.getElementById('loc');
+  const cover = document.getElementById('cover');
   const canvas = document.getElementById('sparkle');
   const ctx = canvas.getContext('2d');
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -136,7 +287,7 @@
   resize();
 
   // One soft glowing dot per colour, drawn once and stamped for every spark.
-  const glows = ['#ffffff', '#ffe9a8', '#ffd76a', '#f6c24a'].map(color => {
+  function glow(color) {
     const c = document.createElement('canvas');
     c.width = c.height = 64;
     const x = c.getContext('2d');
@@ -147,14 +298,20 @@
     x.fillStyle = g;
     x.fillRect(0, 0, 64, 64);
     return c;
-  });
+  }
+  THEMES.forEach(t => { t.glows = t.sparks.map(glow); });
 
   let index = -1;
   let elapsed = 0;
   let held = false;
   let sweep = null;      // { from, start } while a card is being uncovered
   let sparks = [];
+  let petals = [];
+  let petalFade = 0;
   let last = performance.now();
+
+  const pick = list => list[(Math.random() * list.length) | 0];
+  const theme = () => THEMES[Math.max(index, 0)];
 
   function setMask(card, value) {
     card.style.webkitMaskImage = value;
@@ -179,6 +336,7 @@
     const card = cards[index];
     save.href = card.querySelector('img').getAttribute('src');
     save.download = card.dataset.name;
+    loc.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(card.dataset.place);
     if (index === from) return;
     card.classList.add('in');
     sweep = { from, start: performance.now() };
@@ -190,30 +348,91 @@
     return W / 2 + ((f - .5) * L - dir.y * (y - H / 2)) / dir.x;
   }
 
+  function spark(x, y, drift) {
+    return {
+      x, y,
+      vx: drift ? -20 + Math.random() * 90 : (Math.random() - .5) * 10,
+      vy: drift ? -35 + Math.random() * 60 : -6 - Math.random() * 10,
+      g: drift ? 18 : 0,
+      r: .7 + Math.random() * 2.1,
+      life: drift ? 500 + Math.random() * 1000 : 1400 + Math.random() * 1600,
+      age: 0,
+      glow: pick(theme().glows),
+      star: Math.random() < .16,
+      phase: Math.random() * 6.28
+    };
+  }
+
   function addSparks(f, L, dt) {
     let n = dt * (W < 600 ? .3 : .55);
     while (n > 0 && sparks.length < MAX_SPARKS) {
       if (n < 1 && Math.random() > n) break;
       n--;
       const y = Math.random() * H;
-      sparks.push({
-        x: edgeX(f, y, L) + (Math.random() - .7) * 26,
-        y,
-        vx: -20 + Math.random() * 90,
-        vy: -35 + Math.random() * 60,
-        r: .7 + Math.random() * 2.1,
-        life: 500 + Math.random() * 1000,
-        age: 0,
-        glow: glows[(Math.random() * glows.length) | 0],
-        star: Math.random() < .16,
-        phase: Math.random() * 6.28
-      });
+      sparks.push(spark(edgeX(f, y, L) + (Math.random() - .7) * 26, y, true));
     }
+  }
+
+  function petal(anywhere) {
+    return {
+      x: Math.random() * W,
+      y: anywhere ? Math.random() * H : -20,
+      vy: 16 + Math.random() * 22,
+      sway: 12 + Math.random() * 22,
+      phase: Math.random() * 6.28,
+      rot: Math.random() * 6.28,
+      vr: (Math.random() - .5) * 1.2,
+      size: 5 + Math.random() * 6,
+      color: pick(theme().petals)
+    };
+  }
+
+  function drawPetals(dt) {
+    const want = W < 600 ? 11 : 20;
+    while (petals.length < want) petals.push(petal(true));
+    // Holding to read clears the petals away; letting go brings them back.
+    petalFade += ((held ? 0 : 1) - petalFade) * Math.min(1, dt / 220);
+    ctx.globalCompositeOperation = 'source-over';
+    petals.forEach((p, n) => {
+      p.y += p.vy * dt / 1000;
+      p.phase += dt / 900;
+      p.rot += p.vr * dt / 1000;
+      if (p.y > H + 20) petals[n] = p = petal(false);
+      const x = p.x + Math.sin(p.phase) * p.sway;
+      const s = p.size;
+      ctx.save();
+      ctx.translate(x, p.y);
+      ctx.rotate(p.rot);
+      ctx.scale(1, .45 + .55 * Math.abs(Math.cos(p.phase * 1.3)));
+      ctx.globalAlpha = .8 * petalFade;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * .9, -s * .6, s * .7, s * .7, 0, s);
+      ctx.bezierCurveTo(-s * .7, s * .7, -s * .9, -s * .6, 0, -s);
+      ctx.fill();
+      ctx.restore();
+    });
   }
 
   function draw(now, dt) {
     ctx.clearRect(0, 0, W, H);
+    if (calm) {
+      if (sweep) {
+        const t = Math.min(1, (now - sweep.start) / 400);
+        cards[index].style.opacity = t;
+        if (t >= 1) { cards[index].style.opacity = ''; endSweep(); }
+      }
+      return;
+    }
+
+    if (index >= 0) drawPetals(dt);
     ctx.globalCompositeOperation = 'lighter';
+
+    // Before the invitation is opened, a few sparkles drift over the opening screen.
+    if (index < 0 && sparks.length < 26 && Math.random() < dt / 110) {
+      sparks.push(spark(Math.random() * W, Math.random() * H, false));
+    }
 
     if (sweep) {
       const t = Math.min(1, (now - sweep.start) / SWEEP_MS);
@@ -221,29 +440,27 @@
       const edge = eased * (100 + SOFT);
       setMask(cards[index], 'linear-gradient(' + ANGLE + 'deg,#000 ' + (edge - SOFT) + '%,transparent ' + edge + '%)');
 
-      if (!calm) {
-        const L = Math.abs(W * dir.x) + Math.abs(H * dir.y);
-        const f = (edge - SOFT / 2) / 100;
-        const band = Math.max(90, W * .24);
-        const cx = (f - .5) * L;
-        const far = Math.hypot(W, H);
+      const L = Math.abs(W * dir.x) + Math.abs(H * dir.y);
+      const f = (edge - SOFT / 2) / 100;
+      const band = Math.max(90, W * .24);
+      const cx = (f - .5) * L;
+      const far = Math.hypot(W, H);
 
-        // The shiny band riding the edge of the reveal.
-        ctx.save();
-        ctx.translate(W / 2, H / 2);
-        ctx.rotate(rad - Math.PI / 2);
-        const g = ctx.createLinearGradient(cx - band, 0, cx + band * .35, 0);
-        g.addColorStop(0, 'rgba(255,214,120,0)');
-        g.addColorStop(.6, 'rgba(255,226,150,.28)');
-        g.addColorStop(.8, 'rgba(255,255,255,.8)');
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.globalAlpha = Math.sqrt(Math.sin(Math.PI * t));
-        ctx.fillStyle = g;
-        ctx.fillRect(cx - band, -far, band * 1.35, far * 2);
-        ctx.restore();
+      // The shiny band riding the edge of the reveal.
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(rad - Math.PI / 2);
+      const g = ctx.createLinearGradient(cx - band, 0, cx + band * .35, 0);
+      g.addColorStop(0, 'rgba(255,214,120,0)');
+      g.addColorStop(.6, 'rgba(255,226,150,.28)');
+      g.addColorStop(.8, 'rgba(255,255,255,.8)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalAlpha = Math.sqrt(Math.sin(Math.PI * t));
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - band, -far, band * 1.35, far * 2);
+      ctx.restore();
 
-        addSparks(f, L, dt);
-      }
+      addSparks(f, L, dt);
       if (t >= 1) endSweep();
     }
 
@@ -251,7 +468,7 @@
       p.age += dt;
       p.x += p.vx * dt / 1000;
       p.y += p.vy * dt / 1000;
-      p.vy += 18 * dt / 1000;
+      p.vy += p.g * dt / 1000;
       const k = p.age / p.life;
       if (k >= 1) continue;
       const a = Math.sin(Math.PI * k) * (.65 + .35 * Math.sin(p.phase + p.age / 70));
@@ -279,37 +496,52 @@
         const p = n < index ? 1 : n === index ? elapsed / SHOW_MS : 0;
         f.style.transform = 'scaleX(' + p + ')';
       });
-      draw(now, dt);
     }
+    draw(now, dt);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // Start once the first card has loaded, so the first sweep uncovers a picture.
-  const first = cards[0].querySelector('img');
-  (first.decode ? first.decode() : Promise.resolve()).catch(() => {}).then(() => go(0));
+  // The opening screen: a tap lifts it away and the first card is swept in.
+  function openInvitation() {
+    if (index >= 0 || cover.classList.contains('gone')) return;
+    cover.classList.add('gone');
+    document.body.classList.add('open');
+    const first = cards[0].querySelector('img');
+    (first.decode ? first.decode() : Promise.resolve()).catch(() => {}).then(() => go(0));
+  }
+  cover.addEventListener('click', openInvitation);
 
   // Press and hold pauses. A quick tap on the right goes forward, on the left goes back.
   // A swipe does the same.
   let startX = 0, startT = 0;
+  function release() {
+    held = false;
+    gallery.classList.remove('held');
+  }
   gallery.addEventListener('pointerdown', e => {
-    if (!e.isPrimary) return;
+    if (!e.isPrimary || index < 0) return;
     held = true;
+    gallery.classList.add('held');
     startX = e.clientX;
     startT = performance.now();
     gallery.setPointerCapture(e.pointerId);
   });
   gallery.addEventListener('pointerup', e => {
     if (!e.isPrimary || !held) return;
-    held = false;
+    release();
     const dx = e.clientX - startX;
     if (Math.abs(dx) > SWIPE_PX) go(index + (dx < 0 ? 1 : -1));
     else if (performance.now() - startT < TAP_MS) go(index + (e.clientX > innerWidth * 0.3 ? 1 : -1));
   });
-  gallery.addEventListener('pointercancel', () => { held = false; });
+  gallery.addEventListener('pointercancel', release);
   gallery.addEventListener('contextmenu', e => e.preventDefault());
 
   addEventListener('keydown', e => {
+    if (index < 0) {
+      if (e.key === 'Enter' || e.key === ' ') openInvitation();
+      return;
+    }
     if (e.key === 'ArrowRight') go(index + 1);
     if (e.key === 'ArrowLeft') go(index - 1);
   });
