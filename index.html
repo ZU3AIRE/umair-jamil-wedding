@@ -8,7 +8,7 @@
 <title>Umair &amp; Sana — Wedding Invitation</title>
 <meta property="og:type" content="website">
 <meta property="og:title" content="Umair &amp; Sana — Wedding Invitation">
-<meta property="og:description" content="6 · 7 · 8 November 2026 · Lahore">
+<meta property="og:description" content="November 2026 · Lahore">
 <meta property="og:image" content="https://zu3aire.github.io/umair-jamil-wedding/preview.jpg">
 <meta property="og:url" content="https://zu3aire.github.io/umair-jamil-wedding/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -268,7 +268,16 @@
   ];
 
   const gallery = document.getElementById('gallery');
-  const cards = [...gallery.children];
+  // A link can limit which cards are shown: ?e=barat-waleema or ?e=waleema.
+  const SETS = { 'barat-waleema': [1, 2], 'waleema': [2] };
+  const only = SETS[new URLSearchParams(location.search).get('e')];
+  const cards = [...gallery.children].filter((card, n) => {
+    card.dataset.theme = n;
+    if (!only || only.includes(n)) return true;
+    card.remove();
+    return false;
+  });
+  if (only) document.querySelector('.dates').textContent = only.length > 1 ? '7 · 8 November 2026' : '8 November 2026';
   const save = document.getElementById('save');
   const loc = document.getElementById('loc');
   const cover = document.getElementById('cover');
@@ -316,7 +325,7 @@
   let last = performance.now();
 
   const pick = list => list[(Math.random() * list.length) | 0];
-  const theme = () => THEMES[Math.max(index, 0)];
+  const theme = () => THEMES[cards[Math.max(index, 0)].dataset.theme];
 
   function setMask(card, value) {
     card.style.webkitMaskImage = value;
