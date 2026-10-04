@@ -26,12 +26,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transform: scale(1.05);
-    transition: opacity .8s ease, transform 1.2s ease;
+    visibility: hidden;
     pointer-events: none;
   }
-  .card.on { opacity: 1; transform: scale(1); }
+  .card.on { visibility: visible; z-index: 1; }
+  .card.in { visibility: visible; z-index: 2; }
   .card img {
     max-width: 100%;
     max-height: 100%;
@@ -40,8 +39,18 @@
     -webkit-touch-callout: none;
   }
 
+  #sparkle {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+  }
+
   .bars {
     position: fixed;
+    z-index: 4;
     top: calc(10px + env(safe-area-inset-top));
     left: calc(10px + env(safe-area-inset-left));
     right: calc(10px + env(safe-area-inset-right));
@@ -67,6 +76,7 @@
 
   .save {
     position: fixed;
+    z-index: 4;
     top: calc(24px + env(safe-area-inset-top));
     right: calc(12px + env(safe-area-inset-right));
     width: 44px;
@@ -77,60 +87,207 @@
     place-items: center;
   }
   .save svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .card { transition: opacity .2s linear; transform: none; }
-  }
 </style>
 </head>
 <body>
 
 <main class="gallery" id="gallery">
-  <section class="card on" data-name="01-Mehndi.jpg"><img src="01-mehndi.jpg" alt="Mehndi invitation card" draggable="false"></section>
+  <section class="card" data-name="01-Mehndi.jpg"><img src="01-mehndi.jpg" alt="Mehndi invitation card" draggable="false"></section>
   <section class="card" data-name="02-Barat.jpg"><img src="02-barat.jpg" alt="Barat invitation card" draggable="false"></section>
   <section class="card" data-name="03-Waleema.jpg"><img src="03-waleema.jpg" alt="Waleema invitation card" draggable="false"></section>
 </main>
+
+<canvas id="sparkle"></canvas>
 
 <div class="bars" id="bars"><span><i></i></span><span><i></i></span><span><i></i></span></div>
 
 <a class="save" id="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save this card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
 
 <script>
-  const SHOW_MS = 5000;   // how long each card stays up
-  const TAP_MS = 250;     // shorter than this is a tap, longer is a hold
+  const SHOW_MS = 6000;    // how long each card stays up, sweep included
+  const SWEEP_MS = 1700;   // how long the shimmer takes to cross the screen
+  const TAP_MS = 250;      // shorter than this is a tap, longer is a hold
   const SWIPE_PX = 40;
+  const SOFT = 18;         // width of the soft edge of the reveal, in percent
+  const ANGLE = 100;       // tilt of the sweep, as a CSS gradient angle
+  const MAX_SPARKS = 450;
 
   const gallery = document.getElementById('gallery');
   const cards = [...gallery.children];
   const fills = [...document.querySelectorAll('#bars i')];
   const save = document.getElementById('save');
+  const canvas = document.getElementById('sparkle');
+  const ctx = canvas.getContext('2d');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let index = 0;
+  const rad = ANGLE * Math.PI / 180;
+  const dir = { x: Math.sin(rad), y: -Math.cos(rad) };
+
+  let W = 0, H = 0;
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth;
+    H = innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // One soft glowing dot per colour, drawn once and stamped for every spark.
+  const glows = ['#ffffff', '#ffe9a8', '#ffd76a', '#f6c24a'].map(color => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(.22, color);
+    g.addColorStop(1, color + '00');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 64, 64);
+    return c;
+  });
+
+  let index = -1;
   let elapsed = 0;
   let held = false;
+  let sweep = null;      // { from, start } while a card is being uncovered
+  let sparks = [];
   let last = performance.now();
 
+  function setMask(card, value) {
+    card.style.webkitMaskImage = value;
+    card.style.maskImage = value;
+  }
+
+  function endSweep() {
+    if (!sweep) return;
+    if (sweep.from >= 0) cards[sweep.from].classList.remove('on');
+    const card = cards[index];
+    setMask(card, '');
+    card.classList.remove('in');
+    card.classList.add('on');
+    sweep = null;
+  }
+
   function go(i) {
+    endSweep();
+    const from = index;
     index = (i + cards.length) % cards.length;
     elapsed = 0;
-    cards.forEach((c, n) => c.classList.toggle('on', n === index));
     const card = cards[index];
     save.href = card.querySelector('img').getAttribute('src');
     save.download = card.dataset.name;
+    if (index === from) return;
+    card.classList.add('in');
+    sweep = { from, start: performance.now() };
+    setMask(card, 'linear-gradient(' + ANGLE + 'deg,#000 -' + SOFT + '%,transparent 0%)');
+  }
+
+  // Where the sweep line crosses a given height, for a position f along the sweep (0 to 1).
+  function edgeX(f, y, L) {
+    return W / 2 + ((f - .5) * L - dir.y * (y - H / 2)) / dir.x;
+  }
+
+  function addSparks(f, L, dt) {
+    let n = dt * (W < 600 ? .3 : .55);
+    while (n > 0 && sparks.length < MAX_SPARKS) {
+      if (n < 1 && Math.random() > n) break;
+      n--;
+      const y = Math.random() * H;
+      sparks.push({
+        x: edgeX(f, y, L) + (Math.random() - .7) * 26,
+        y,
+        vx: -20 + Math.random() * 90,
+        vy: -35 + Math.random() * 60,
+        r: .7 + Math.random() * 2.1,
+        life: 500 + Math.random() * 1000,
+        age: 0,
+        glow: glows[(Math.random() * glows.length) | 0],
+        star: Math.random() < .16,
+        phase: Math.random() * 6.28
+      });
+    }
+  }
+
+  function draw(now, dt) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+
+    if (sweep) {
+      const t = Math.min(1, (now - sweep.start) / SWEEP_MS);
+      const eased = -(Math.cos(Math.PI * t) - 1) / 2;
+      const edge = eased * (100 + SOFT);
+      setMask(cards[index], 'linear-gradient(' + ANGLE + 'deg,#000 ' + (edge - SOFT) + '%,transparent ' + edge + '%)');
+
+      if (!calm) {
+        const L = Math.abs(W * dir.x) + Math.abs(H * dir.y);
+        const f = (edge - SOFT / 2) / 100;
+        const band = Math.max(90, W * .24);
+        const cx = (f - .5) * L;
+        const far = Math.hypot(W, H);
+
+        // The shiny band riding the edge of the reveal.
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(rad - Math.PI / 2);
+        const g = ctx.createLinearGradient(cx - band, 0, cx + band * .35, 0);
+        g.addColorStop(0, 'rgba(255,214,120,0)');
+        g.addColorStop(.6, 'rgba(255,226,150,.28)');
+        g.addColorStop(.8, 'rgba(255,255,255,.8)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.globalAlpha = Math.sqrt(Math.sin(Math.PI * t));
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - band, -far, band * 1.35, far * 2);
+        ctx.restore();
+
+        addSparks(f, L, dt);
+      }
+      if (t >= 1) endSweep();
+    }
+
+    for (const p of sparks) {
+      p.age += dt;
+      p.x += p.vx * dt / 1000;
+      p.y += p.vy * dt / 1000;
+      p.vy += 18 * dt / 1000;
+      const k = p.age / p.life;
+      if (k >= 1) continue;
+      const a = Math.sin(Math.PI * k) * (.65 + .35 * Math.sin(p.phase + p.age / 70));
+      const s = p.r * 7;
+      ctx.globalAlpha = a;
+      ctx.drawImage(p.glow, p.x - s, p.y - s, s * 2, s * 2);
+      if (p.star) {
+        const len = p.r * 7 * a;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(p.x - len, p.y - .5, len * 2, 1);
+        ctx.fillRect(p.x - .5, p.y - len, 1, len * 2);
+      }
+    }
+    sparks = sparks.filter(p => p.age < p.life);
+    ctx.globalAlpha = 1;
   }
 
   function tick(now) {
-    const dt = now - last;
+    const dt = Math.min(now - last, 100);
     last = now;
-    if (!held && !document.hidden) elapsed += Math.min(dt, 250);
-    if (elapsed >= SHOW_MS) go(index + 1);
-    fills.forEach((f, n) => {
-      const p = n < index ? 1 : n === index ? elapsed / SHOW_MS : 0;
-      f.style.transform = 'scaleX(' + p + ')';
-    });
+    if (index >= 0) {
+      if (!held && !document.hidden) elapsed += dt;
+      if (elapsed >= SHOW_MS) go(index + 1);
+      fills.forEach((f, n) => {
+        const p = n < index ? 1 : n === index ? elapsed / SHOW_MS : 0;
+        f.style.transform = 'scaleX(' + p + ')';
+      });
+      draw(now, dt);
+    }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+
+  // Start once the first card has loaded, so the first sweep uncovers a picture.
+  const first = cards[0].querySelector('img');
+  (first.decode ? first.decode() : Promise.resolve()).catch(() => {}).then(() => go(0));
 
   // Press and hold pauses. A quick tap on the right goes forward, on the left goes back.
   // A swipe does the same.
