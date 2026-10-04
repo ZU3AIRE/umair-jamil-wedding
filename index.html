@@ -12,37 +12,62 @@
   body { font-family: system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
 
   .gallery {
-    display: flex;
+    position: relative;
     height: 100dvh;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    overscroll-behavior: contain;
+    touch-action: pinch-zoom;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
-  .gallery::-webkit-scrollbar { display: none; }
 
   .card {
-    position: relative;
-    flex: 0 0 100%;
-    height: 100%;
-    scroll-snap-align: center;
-    scroll-snap-stop: always;
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 0;
+    transform: scale(1.05);
+    transition: opacity .8s ease, transform 1.2s ease;
+    pointer-events: none;
   }
+  .card.on { opacity: 1; transform: scale(1); }
   .card img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    user-select: none;
     -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+
+  .bars {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    right: calc(10px + env(safe-area-inset-right));
+    display: flex;
+    gap: 5px;
+    pointer-events: none;
+  }
+  .bars span {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .35);
+    box-shadow: 0 0 2px rgba(0, 0, 0, .5);
+    overflow: hidden;
+  }
+  .bars i {
+    display: block;
+    height: 100%;
+    background: #fff;
+    transform: scaleX(0);
+    transform-origin: left;
   }
 
   .save {
-    position: absolute;
-    top: calc(12px + env(safe-area-inset-top));
+    position: fixed;
+    top: calc(24px + env(safe-area-inset-top));
     right: calc(12px + env(safe-area-inset-right));
     width: 44px;
     height: 44px;
@@ -53,72 +78,83 @@
   }
   .save svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  .dots {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    pointer-events: none;
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition: opacity .2s linear; transform: none; }
   }
-  .dots span {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .35);
-    box-shadow: 0 0 2px rgba(0, 0, 0, .6);
-    transition: background .2s, transform .2s;
-  }
-  .dots span.on { background: #fff; transform: scale(1.25); }
 </style>
 </head>
 <body>
 
 <main class="gallery" id="gallery">
-  <section class="card">
-    <img src="01-mehndi.jpg" alt="Mehndi invitation card">
-    <a class="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save Mehndi card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
-  </section>
-  <section class="card">
-    <img src="02-barat.jpg" alt="Barat invitation card">
-    <a class="save" href="02-barat.jpg" download="02-Barat.jpg" aria-label="Save Barat card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
-  </section>
-  <section class="card">
-    <img src="03-waleema.jpg" alt="Waleema invitation card">
-    <a class="save" href="03-waleema.jpg" download="03-Waleema.jpg" aria-label="Save Waleema card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
-  </section>
+  <section class="card on" data-name="01-Mehndi.jpg"><img src="01-mehndi.jpg" alt="Mehndi invitation card" draggable="false"></section>
+  <section class="card" data-name="02-Barat.jpg"><img src="02-barat.jpg" alt="Barat invitation card" draggable="false"></section>
+  <section class="card" data-name="03-Waleema.jpg"><img src="03-waleema.jpg" alt="Waleema invitation card" draggable="false"></section>
 </main>
 
-<div class="dots" id="dots"><span class="on"></span><span></span><span></span></div>
+<div class="bars" id="bars"><span><i></i></span><span><i></i></span><span><i></i></span></div>
+
+<a class="save" id="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save this card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
 
 <script>
+  const SHOW_MS = 5000;   // how long each card stays up
+  const TAP_MS = 250;     // shorter than this is a tap, longer is a hold
+  const SWIPE_PX = 40;
+
   const gallery = document.getElementById('gallery');
-  const dots = [...document.getElementById('dots').children];
+  const cards = [...gallery.children];
+  const fills = [...document.querySelectorAll('#bars i')];
+  const save = document.getElementById('save');
 
-  function current() {
-    return Math.round(gallery.scrollLeft / gallery.clientWidth);
-  }
-
-  gallery.addEventListener('scroll', () => {
-    const i = current();
-    dots.forEach((d, n) => d.classList.toggle('on', n === i));
-  }, { passive: true });
+  let index = 0;
+  let elapsed = 0;
+  let held = false;
+  let last = performance.now();
 
   function go(i) {
-    const n = Math.max(0, Math.min(dots.length - 1, i));
-    gallery.scrollTo({ left: n * gallery.clientWidth, behavior: 'smooth' });
+    index = (i + cards.length) % cards.length;
+    elapsed = 0;
+    cards.forEach((c, n) => c.classList.toggle('on', n === index));
+    const card = cards[index];
+    save.href = card.querySelector('img').getAttribute('src');
+    save.download = card.dataset.name;
   }
 
-  // Desktop: arrow keys, and a click on the left or right half of the screen.
-  addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight') go(current() + 1);
-    if (e.key === 'ArrowLeft') go(current() - 1);
+  function tick(now) {
+    const dt = now - last;
+    last = now;
+    if (!held && !document.hidden) elapsed += Math.min(dt, 250);
+    if (elapsed >= SHOW_MS) go(index + 1);
+    fills.forEach((f, n) => {
+      const p = n < index ? 1 : n === index ? elapsed / SHOW_MS : 0;
+      f.style.transform = 'scaleX(' + p + ')';
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // Press and hold pauses. A quick tap on the right goes forward, on the left goes back.
+  // A swipe does the same.
+  let startX = 0, startT = 0;
+  gallery.addEventListener('pointerdown', e => {
+    if (!e.isPrimary) return;
+    held = true;
+    startX = e.clientX;
+    startT = performance.now();
+    gallery.setPointerCapture(e.pointerId);
   });
-  gallery.addEventListener('click', e => {
-    if (e.target.closest('.save') || matchMedia('(pointer: coarse)').matches) return;
-    go(current() + (e.clientX > innerWidth / 2 ? 1 : -1));
+  gallery.addEventListener('pointerup', e => {
+    if (!e.isPrimary || !held) return;
+    held = false;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > SWIPE_PX) go(index + (dx < 0 ? 1 : -1));
+    else if (performance.now() - startT < TAP_MS) go(index + (e.clientX > innerWidth * 0.3 ? 1 : -1));
+  });
+  gallery.addEventListener('pointercancel', () => { held = false; });
+  gallery.addEventListener('contextmenu', e => e.preventDefault());
+
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(index + 1);
+    if (e.key === 'ArrowLeft') go(index - 1);
   });
 </script>
 </body>
