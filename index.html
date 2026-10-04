@@ -72,7 +72,7 @@
   }
 
   .save, .loc, .mute { transition: opacity .8s ease .4s; }
-  body:not(.open) .save, body:not(.open) .loc, body:not(.open) .mute { opacity: 0; pointer-events: none; }
+  body:not(.opened) .save, body:not(.opened) .loc, body:not(.opened) .mute { opacity: 0; pointer-events: none; }
 
   .save, .loc, .mute {
     position: fixed;
@@ -654,7 +654,7 @@
   function openInvitation() {
     if (index >= 0 || cover.classList.contains('gone')) return;
     cover.classList.add('gone');
-    document.body.classList.add('open');
+    document.body.classList.add('opened');
     startSound();
     const first = cards[0].querySelector('img');
     (first.decode ? first.decode() : Promise.resolve()).catch(() => {}).then(() => go(0));
