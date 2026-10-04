@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#111111">
+<title>Wedding Invitation</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+  body { font-family: system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+
+  .gallery {
+    display: flex;
+    height: 100dvh;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+  }
+  .gallery::-webkit-scrollbar { display: none; }
+
+  .card {
+    position: relative;
+    flex: 0 0 100%;
+    height: 100%;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .save {
+    position: absolute;
+    top: calc(12px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .45);
+    display: grid;
+    place-items: center;
+  }
+  .save svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .dots {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .35);
+    box-shadow: 0 0 2px rgba(0, 0, 0, .6);
+    transition: background .2s, transform .2s;
+  }
+  .dots span.on { background: #fff; transform: scale(1.25); }
+</style>
+</head>
+<body>
+
+<main class="gallery" id="gallery">
+  <section class="card">
+    <img src="01-mehndi.jpg" alt="Mehndi invitation card">
+    <a class="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save Mehndi card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
+  </section>
+  <section class="card">
+    <img src="02-barat.jpg" alt="Barat invitation card">
+    <a class="save" href="02-barat.jpg" download="02-Barat.jpg" aria-label="Save Barat card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
+  </section>
+  <section class="card">
+    <img src="03-waleema.jpg" alt="Waleema invitation card">
+    <a class="save" href="03-waleema.jpg" download="03-Waleema.jpg" aria-label="Save Waleema card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
+  </section>
+</main>
+
+<div class="dots" id="dots"><span class="on"></span><span></span><span></span></div>
+
+<script>
+  const gallery = document.getElementById('gallery');
+  const dots = [...document.getElementById('dots').children];
+
+  function current() {
+    return Math.round(gallery.scrollLeft / gallery.clientWidth);
+  }
+
+  gallery.addEventListener('scroll', () => {
+    const i = current();
+    dots.forEach((d, n) => d.classList.toggle('on', n === i));
+  }, { passive: true });
+
+  function go(i) {
+    const n = Math.max(0, Math.min(dots.length - 1, i));
+    gallery.scrollTo({ left: n * gallery.clientWidth, behavior: 'smooth' });
+  }
+
+  // Desktop: arrow keys, and a click on the left or right half of the screen.
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(current() + 1);
+    if (e.key === 'ArrowLeft') go(current() - 1);
+  });
+  gallery.addEventListener('click', e => {
+    if (e.target.closest('.save') || matchMedia('(pointer: coarse)').matches) return;
+    go(current() + (e.clientX > innerWidth / 2 ? 1 : -1));
+  });
+
+  // Download the cards one by one on the first visit. A refresh does not repeat it.
+  // The browser decides whether to allow, ask, or block; the save icons are the fallback.
+  addEventListener('load', async () => {
+    try {
+      if (sessionStorage.getItem('downloaded')) return;
+      sessionStorage.setItem('downloaded', '1');
+    } catch (e) {}
+    for (const link of document.querySelectorAll('.save')) {
+      const a = document.createElement('a');
+      a.href = link.href;
+      a.download = link.download;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await new Promise(r => setTimeout(r, 1200));
+    }
+  });
+</script>
+</body>
+</html>
