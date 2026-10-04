@@ -70,8 +70,8 @@
     pointer-events: none;
   }
 
-  .bars, .save, .loc { transition: opacity .8s ease .4s; }
-  body:not(.open) .bars, body:not(.open) .save, body:not(.open) .loc { opacity: 0; pointer-events: none; }
+  .bars, .save, .loc, .mute { transition: opacity .8s ease .4s; }
+  body:not(.open) .bars, body:not(.open) .save, body:not(.open) .loc, body:not(.open) .mute { opacity: 0; pointer-events: none; }
 
   .bars {
     position: fixed;
@@ -99,7 +99,7 @@
     transform-origin: left;
   }
 
-  .save, .loc {
+  .save, .loc, .mute {
     position: fixed;
     z-index: 4;
     color: #fff;
@@ -109,7 +109,7 @@
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
-  .save svg, .loc svg { width: 20px; height: 20px; stroke: #f3dc9a; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .save svg, .loc svg, .mute svg { width: 20px; height: 20px; stroke: #f3dc9a; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
   .save {
     top: calc(24px + env(safe-area-inset-top));
@@ -120,6 +120,20 @@
     display: grid;
     place-items: center;
   }
+
+  .mute {
+    top: calc(24px + env(safe-area-inset-top));
+    left: calc(12px + env(safe-area-inset-left));
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .mute .off, .mute.muted .on { display: none; }
+  .mute.muted .off { display: inline; }
 
   .loc {
     left: 50%;
@@ -230,6 +244,8 @@
 
 <a class="save" id="save" href="01-mehndi.jpg" download="01-Mehndi.jpg" aria-label="Save this card"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></a>
 
+<button class="mute" id="mute" type="button" aria-label="Mute sound"><svg viewBox="0 0 24 24"><path d="M4 9.500v5h3.500L12 18.500v-13L7.500 9.500z"/><path class="on" d="M15.500 9a4.200 4.200 0 0 1 0 6M18 6.500a7.800 7.800 0 0 1 0 11"/><path class="off" d="M16 9.500l5 5M21 9.500l-5 5"/></svg></button>
+
 <a class="loc" id="loc" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/></svg>Location</a>
 
 <div id="cover" role="button" tabindex="0" aria-label="Open the invitation">
@@ -253,6 +269,7 @@
   const SOFT = 18;         // width of the soft edge of the reveal, in percent
   const ANGLE = 100;       // tilt of the sweep, as a CSS gradient angle
   const MAX_SPARKS = 450;
+  const VOLUME = .5;       // overall loudness of the music and chimes
 
   // Sparkle and petal colours for each event: marigold, rose, white.
   const THEMES = [
@@ -340,6 +357,7 @@
     if (index === from) return;
     card.classList.add('in');
     sweep = { from, start: performance.now() };
+    chime();
     setMask(card, 'linear-gradient(' + ANGLE + 'deg,#000 -' + SOFT + '%,transparent 0%)');
   }
 
@@ -502,11 +520,143 @@
   }
   requestAnimationFrame(tick);
 
+  // Sound is made in the page, with no audio files: a soft pad of slow chords,
+  // a few bell notes over it, and a light rising chime each time a card is swept in.
+  let sound = null;
+  const hz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+  const CHORDS = [[50, 57, 62, 66, 69], [47, 54, 62, 66, 71], [43, 55, 62, 67, 71], [45, 57, 61, 64, 69]];
+  const BELLS = [74, 76, 78, 81, 83, 86, 88, 90];
+  const RISE = [78, 81, 83, 86, 88, 90, 93];
+
+  function startSound() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (sound || !AC) return;
+    const ac = new AC();
+    const master = ac.createGain();
+    master.gain.setValueAtTime(0, ac.currentTime);
+    master.gain.linearRampToValueAtTime(VOLUME, ac.currentTime + 2.5);
+    master.connect(ac.destination);
+
+    // A generated echo tail gives the notes some room.
+    const len = ac.sampleRate * 3;
+    const tail = ac.createBuffer(2, len, ac.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = tail.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+    }
+    const verb = ac.createConvolver();
+    verb.buffer = tail;
+    const wet = ac.createGain();
+    wet.gain.value = .5;
+    verb.connect(wet).connect(master);
+    const bus = ac.createGain();
+    bus.connect(master);
+    bus.connect(verb);
+
+    const noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const nd = noise.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+
+    sound = { ac, master, bus, noise, chord: 0, bell: 3, muted: false };
+    padLoop();
+    setTimeout(bellLoop, 3000);
+  }
+
+  function bell(midi, when, level) {
+    const { ac, bus } = sound;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(level, when + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, when + 2.6);
+    g.connect(bus);
+    [[1, 1], [2, .22], [3, .06]].forEach(([mult, amount]) => {
+      const o = ac.createOscillator();
+      const og = ac.createGain();
+      o.frequency.value = hz(midi) * mult;
+      og.gain.value = amount;
+      o.connect(og).connect(g);
+      o.start(when);
+      o.stop(when + 2.7);
+    });
+  }
+
+  function padLoop() {
+    const { ac, bus } = sound;
+    if (ac.state === 'running') {
+      const t = ac.currentTime + .05;
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 750;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.05, t + 3);
+      g.gain.setValueAtTime(.05, t + 8);
+      g.gain.linearRampToValueAtTime(0, t + 11.5);
+      lp.connect(g).connect(bus);
+      CHORDS[sound.chord++ % CHORDS.length].forEach(m => {
+        [['triangle', 1], ['sine', 1.003]].forEach(([type, detune]) => {
+          const o = ac.createOscillator();
+          o.type = type;
+          o.frequency.value = hz(m) * detune;
+          o.connect(lp);
+          o.start(t);
+          o.stop(t + 11.6);
+        });
+      });
+    }
+    setTimeout(padLoop, 8000);
+  }
+
+  function bellLoop() {
+    const { ac } = sound;
+    if (ac.state === 'running' && Math.random() > .25) {
+      sound.bell = Math.max(0, Math.min(BELLS.length - 1, sound.bell + pick([-2, -1, 1, 2])));
+      bell(BELLS[sound.bell], ac.currentTime + .05, .05);
+    }
+    setTimeout(bellLoop, pick([700, 1000, 1400, 2000, 2600]));
+  }
+
+  // The sound of the shimmer: a quick rising run of bells over a breath of air.
+  function chime() {
+    if (!sound || sound.ac.state !== 'running') return;
+    const { ac, bus, noise } = sound;
+    const t = ac.currentTime + .05;
+    RISE.forEach((m, n) => bell(m, t + .25 + n * .085, .028));
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = .8;
+    bp.frequency.setValueAtTime(1500, t);
+    bp.frequency.exponentialRampToValueAtTime(7000, t + 1.5);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.022, t + .7);
+    g.gain.linearRampToValueAtTime(0, t + 1.7);
+    src.connect(bp).connect(g).connect(bus);
+    src.start(t);
+    src.stop(t + 1.8);
+  }
+
+  const mute = document.getElementById('mute');
+  mute.addEventListener('click', () => {
+    if (!sound) return;
+    sound.muted = !sound.muted;
+    mute.classList.toggle('muted', sound.muted);
+    mute.setAttribute('aria-label', sound.muted ? 'Turn sound on' : 'Mute sound');
+    sound.master.gain.cancelScheduledValues(sound.ac.currentTime);
+    sound.master.gain.setTargetAtTime(sound.muted ? 0 : VOLUME, sound.ac.currentTime, .12);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (sound) document.hidden ? sound.ac.suspend() : sound.ac.resume();
+  });
+
   // The opening screen: a tap lifts it away and the first card is swept in.
   function openInvitation() {
     if (index >= 0 || cover.classList.contains('gone')) return;
     cover.classList.add('gone');
     document.body.classList.add('open');
+    startSound();
     const first = cards[0].querySelector('img');
     (first.decode ? first.decode() : Promise.resolve()).catch(() => {}).then(() => go(0));
   }
