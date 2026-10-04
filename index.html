@@ -17,10 +17,11 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #0d1d12; overflow: hidden; }
-  body { font-family: 'Cormorant Garamond', Georgia, serif; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Cormorant Garamond', Georgia, serif; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
   .gallery {
     position: relative;
+    height: 100vh;
     height: 100dvh;
     touch-action: pinch-zoom;
     user-select: none;
@@ -189,6 +190,23 @@
     text-indent: .3em;
     text-transform: uppercase;
     color: #f3dc9a;
+  }
+
+  /* Short screens: small phones, and phones held sideways. */
+  @media (max-height: 560px) {
+    #cover > div { padding: 12px; }
+    .eyebrow { margin-bottom: 14px; font-size: 12px; }
+    .seal { width: 88px; height: 88px; margin-bottom: 12px; }
+    .seal span { font-size: 30px; }
+    .seal em { font-size: 18px; vertical-align: 4px; }
+    #cover h1 { font-size: 42px; margin-bottom: 4px; }
+    .dates { font-size: 17px; }
+    .open { margin-top: 18px; }
+    .loc { height: 40px; font-size: 17px; bottom: calc(10px + env(safe-area-inset-bottom)); }
+  }
+  @media (max-width: 340px) {
+    .eyebrow { letter-spacing: .3em; text-indent: .3em; }
+    .dates { font-size: 18px; letter-spacing: .08em; }
   }
 
   @media (prefers-reduced-motion: reduce) {
